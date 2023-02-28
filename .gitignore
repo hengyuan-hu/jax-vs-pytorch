@@ -1,0 +1,4 @@
+jax-torch-bench/
+__pycache__/
+enwik9
+enwik9.zip
