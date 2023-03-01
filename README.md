@@ -4,6 +4,12 @@
 Check the requirement.txt file, not tested :). You need to install pytorch nightly to use `torch.compile`.
 
 #### usage
+
+download the data
+```
+wget http://mattmahoney.net/dc/enwik9.zip
+```
+
 ```shell
 # usage
 # --model pytorch or handcraft
