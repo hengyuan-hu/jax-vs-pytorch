@@ -1,11 +1,9 @@
 ### Benchmark speed of transformers on jax vs pytorch(2.0)
 
-prerequisite
-```
+#### prerequisite
+Check the requirement.txt file, not tested :). You need to install pytorch nightly to use `torch.compile`.
 
-```
-
-usage
+#### usage
 ```
 # use
 # --model pytorch or handcraft
