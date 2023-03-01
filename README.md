@@ -22,7 +22,7 @@ python pytorch_run.py --model handcraft --save_dir exps/pytorch/run --compile 1 
 
 #### Speed
 
-Tested on RTX4090 graphics card. num_player is set to 8
+Tested on RTX4090 graphics card. `--num_layer` is set to 8
 
 All data types have similar training curve.
 
@@ -41,7 +41,7 @@ All data types have similar training curve.
 
 **Speed of flash attention**
 
-flash attention only works on fp16?
+flash attention only works on fp16 and bfp16
 
 | dtype   | compile? | normal | flash | Speed up |
 | ------- | -------- | ------ | ----- | -------- |
