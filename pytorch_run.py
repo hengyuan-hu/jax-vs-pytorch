@@ -55,7 +55,7 @@ def train_epoch(lm, cfg: ModelConfig, datapath: str, pt_dtype) -> None:
         optimizer.zero_grad()
 
         losses.append(loss.item())
-        log_per = 20
+        log_per = 1
         if (i + 1) % log_per == 0:
             torch.cuda.synchronize()
             time_elps = time.time() - t

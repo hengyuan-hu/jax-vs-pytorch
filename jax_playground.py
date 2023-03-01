@@ -1,18 +1,5 @@
 # %%
-
 from jax_model import *
-
-def setup_all(cfg: ModelConfig, rng=None):
-    rng = (
-        rng
-        if rng is not None
-        else jax.random.PRNGKey(random.randrange(-(2**63), 2**63))
-    )
-
-    params, model = setup_model(rng, cfg)
-    optimizer, opt_state = setup_optimizer(params, cfg)
-
-    return params, model, optimizer, opt_state
 
 
 cfg = ModelConfig(
@@ -30,9 +17,6 @@ cfg = ModelConfig(
 params, model, optimizer, opt_state = setup_all(cfg)
 
 # %%
-# print(type(params))
-
-
 def _indent(x, num_spaces):
   indent_str = ' ' * num_spaces
   lines = x.split('\n')
@@ -59,7 +43,6 @@ def pretty_repr(fd, num_spaces=4):
 
 
 print(pretty_repr(params))
-# print(x)
 
 
 # FrozenDict({
@@ -128,7 +111,7 @@ cfg = ModelConfig(
     max_num_batch=10000,
 )
 
-lm = HandCraftLM(cfg).cuda()
+lm = HandCraftLM(cfg, False).cuda()
 print(lm)
 
 for v in lm.parameters():

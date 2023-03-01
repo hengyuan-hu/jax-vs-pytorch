@@ -80,4 +80,3 @@ ax.plot(jax, label="jax")
 ax.plot(torch, label="pytorch")
 fig.legend(loc="upper right")
 fig.tight_layout()
-

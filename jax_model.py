@@ -1,7 +1,6 @@
 import argparse
 import os
 import sys
-import random
 import time
 
 import flax.linen as fnn
@@ -32,16 +31,17 @@ class TransformerLayer(fnn.Module):
             # from Attention is All You Need.
             dropout_rate=0,
             deterministic=False,
-            kernel_init=fnn.initializers.lecun_uniform(),
+            # this initilization is important to get learning curve similar to pytorch
+            kernel_init=fnn.initializers.variance_scaling(1/3, "fan_in", "uniform"),
         )
         self.layer_norm_1 = fnn.LayerNorm(epsilon=1e-5)
         self.linear_1 = fnn.Dense(
             features=self.ff_dim,
-            kernel_init=fnn.initializers.lecun_uniform(),
+            kernel_init=fnn.initializers.variance_scaling(1/3, "fan_in", "uniform"),
         )
         self.linear_2 = fnn.Dense(
             features=self.d_model,
-            kernel_init=fnn.initializers.lecun_uniform(),
+            kernel_init=fnn.initializers.variance_scaling(1/3, "fan_in", "uniform"),
         )
         self.layer_norm_2 = fnn.LayerNorm(epsilon=1e-5)
         self.dropout_layer = fnn.Dropout(self.dropout, deterministic=False)
@@ -83,7 +83,10 @@ class LM(fnn.Module):
             )
             for _ in range(self.cfg.n_layers)
         ]
-        self.prob_decoder = fnn.Dense(features=256)
+        self.prob_decoder = fnn.Dense(
+            features=256,
+            kernel_init=fnn.initializers.variance_scaling(1/3, "fan_in", "uniform"),
+        )
 
     def __call__(self, text):
         "Run the model, returning unnormalized log probabilities."
@@ -129,7 +132,6 @@ def setup_model(rng, cfg: ModelConfig):
 
 
 def setup_optimizer(params, cfg: ModelConfig):
-    # optimizer = optax.rmsprop(cfg.learning_rate)
     optimizer = optax.adam(cfg.learning_rate)
     opt_state = optimizer.init(params)
     return optimizer, opt_state
@@ -180,8 +182,7 @@ def train_loop(
 
 
 def setup_all(cfg: ModelConfig, rng=None):
-    rng = jax.random.PRNGKey(1)#random.randrange(-(2**63), 2**63))
-
+    rng = jax.random.PRNGKey(1)
     params, model = setup_model(rng, cfg)
     optimizer, opt_state = setup_optimizer(params, cfg)
 

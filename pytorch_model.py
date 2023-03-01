@@ -104,6 +104,8 @@ class TransformerLayer(nn.Module):
         self.dropout = dropout
 
     def forward(self, x):
+        # x = x + nn.functional.dropout(self.mha(x), p=self.dropout)
+        # x = x + nn.functional.dropout(self._ff_block(x), p=self.dropout)
         x = x + nn.functional.dropout(self.mha(self.layer_norm1(x)), p=self.dropout)
         x = x + nn.functional.dropout(self._ff_block(self.layer_norm2(x)), p=self.dropout)
         return x

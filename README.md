@@ -10,6 +10,7 @@ download the data
 wget http://mattmahoney.net/dc/enwik9.zip
 ```
 
+run the code
 ```shell
 # usage
 # --model pytorch or handcraft
@@ -26,27 +27,33 @@ Tested on RTX4090 graphics card. `--num_layer` is set to 8
 
 All data types have similar training curve.
 
-**Speed by dtypes on handcraft model**
-| dtype    | no compile | compile | Speed up |
-| -------- | ---------- | ------- | -------- |
-| float32  | 672        | 736     | 1.10x    |
-| float16  | 991        | 1287    | 1.30x    |
-| bfloat16 | 982        | 1273    | 1.30x    |
-
 **Speed of torch model vs handcraft model**
 
 |          | torch | handcraft | Speed up |
 | -------- | ----- | --------- | -------- |
 | bfloat16 | 1093  | 1273      | 1.16x    |
 
+For the subsequent experiment we use handcraft model.
+
+**Speed by dtypes on handcraft model**
+| dtype    | torch | torch.compile | speed up | jax | jax vs torch | jax vs torch.compile |
+| -------- | ----- | ------------- | -------- | --- | ------------ | -------------------- |
+| float32  | 672   | 736           | 1.10x    | 797 | 1.19x        | 1.08x                |
+| float16  | 991   | 1287          | 1.30x    |     |              |                      |
+| bfloat16 | 982   | 1273          | 1.30x    |     |              |                      |
+
+Jax seems to beat torch.compile, at least on float32.
+I have not learned how to write fp16 training in jax. It is not as easy as in pytorch.
+
+
 **Speed of flash attention**
 
 flash attention only works on fp16 and bfp16
 
-| dtype   | compile? | normal | flash | Speed up |
-| ------- | -------- | ------ | ----- | -------- |
-| float16 | 0        | 991    | 1425  | 1.44x    |
-| float16 | 1        | 1287   | 1170  | 0.9x     |
+| dtype   | compile | normal | flash | speed up |
+| ------- | ------- | ------ | ----- | -------- |
+| float16 | yes     | 991    | 1425  | 1.44x    |
+| float16 | no      | 1287   | 1170  | 0.9x     |
 
 **NOTE**: somehow flash attention is slower when compiled
 
