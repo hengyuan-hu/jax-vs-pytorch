@@ -34,6 +34,7 @@ All data types have similar training curve.
 | bfloat16 | 1093  | 1273      | 1.16x    |
 
 **Speed of flash attention**
+
 flash attention only works on fp16
 
 | dtype   | compile? | normal | flash | Speed up |
