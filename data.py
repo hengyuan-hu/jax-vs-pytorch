@@ -28,3 +28,8 @@ class Enwik9Loader:
             for start in range(0, len(slices) - short_batch, self.batch_size)
         ]
         return iter(batches)
+
+
+if __name__ == "__main__":
+    x = Enwik9Loader(100, 256, './enwik9')
+    y = iter(x)

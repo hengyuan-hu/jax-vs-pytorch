@@ -1,5 +1,6 @@
 #%%
 import matplotlib.pyplot as plt
+import numpy as np
 plt.switch_backend("agg")
 %matplotlib inline
 
@@ -23,8 +24,6 @@ def generate_grid(cols, rows, figsize=7):
     return fig, ax
 
 #%%
-import numpy as np
-
 fp32_losses, fp32_speeds = parse_log(
     "./exps/pytorch/run_handcraft_layer8_float32_compiled/train.log")
 fp16_losses, fp16_speeds = parse_log(

@@ -3,7 +3,6 @@ import torch
 import torch.nn as nn
 
 import einops
-from flash_attn.flash_attention import FlashMHA
 from config import ModelConfig
 
 
@@ -69,6 +68,7 @@ class MultiHeadAttention(nn.Module):
         ).unbind(1)
         # q, k, v: (batch, num_head, seq, d_head)
         if self.flash:
+            # force flash attention, it will raise error if flash cannot be applied
             with torch.backends.cuda.sdp_kernel(enable_math=False, enable_mem_efficient=False):
                 attn_v = torch.nn.functional.scaled_dot_product_attention(
                     q, k, v, dropout_p=0.0, is_causal=True
@@ -82,16 +82,11 @@ class MultiHeadAttention(nn.Module):
                 seq_len = q.size(2)
                 causal_mask = torch.triu(
                     torch.full((seq_len, seq_len), -1e6, device=score.device), diagonal=1
-                )  # lower_tri + diagnal = 0
+                )  # set lower_tri & diagnal = 0
                 score = score + causal_mask
 
             attn = score.softmax(dim=-1)
             attn_v = torch.einsum("bhts,bhsd->bhtd", attn, v)
-            attn_v_ref = torch.nn.functional.scaled_dot_product_attention(
-                q, k, v, dropout_p=0, is_causal=True
-            )
-            # print(attn_v.size(), attn_v_ref.size())
-            # print("diff:", ((attn_v - attn_v_ref).abs() / (1e-5+attn_v.abs())).max().item())
 
         attn_v = einops.rearrange(attn_v, "b h t d -> t b (h d)")
         return self.out_proj(attn_v)
@@ -100,12 +95,6 @@ class MultiHeadAttention(nn.Module):
 class TransformerLayer(nn.Module):
     def __init__(self, d_model, num_head, ff_dim, dropout, flash):
         super().__init__()
-        # self.mha = nn.MultiheadAttention(d_model, num_head)
-        # self.flash = flash
-        # if use_flash:
-        #     print("use flash attention")
-        #     self.mha = FlashMHA(d_model, num_head, causal=True)
-        # else:
         self.mha = MultiHeadAttention(d_model, num_head, causal=True, flash=flash)
         self.layer_norm1 = nn.LayerNorm(d_model)
         self.linear1 = nn.Linear(d_model, ff_dim)
@@ -115,16 +104,6 @@ class TransformerLayer(nn.Module):
         self.dropout = dropout
 
     def forward(self, x):
-        # qkv = self.layer_norm1(x)
-        # seq_len = x.size(0)
-        # causal_mask = torch.triu(
-        #     torch.full((seq_len, seq_len), -1e6, device=x.device), diagonal=1
-        # )  # lower_tri + diagnal = 0
-        # x = x + nn.functional.dropout(
-        #     self.mha(qkv, qkv, qkv, attn_mask=causal_mask)[0],
-        #     p=self.dropout
-        # )
-
         x = x + nn.functional.dropout(self.mha(self.layer_norm1(x)), p=self.dropout)
         x = x + nn.functional.dropout(self._ff_block(self.layer_norm2(x)), p=self.dropout)
         return x
@@ -152,7 +131,7 @@ class HandCraftLM(nn.Module):
 
     def forward(self, text_batch):
         batch_size = text_batch.shape[1]
-        # Shift input right so causality isn't violated
+        # shift input right so causality isn't violated
         embeddings = self.byte_embedding(text_batch.int())
 
         zeros = torch.zeros(1, batch_size, self.cfg.d_model, device=text_batch.device)
