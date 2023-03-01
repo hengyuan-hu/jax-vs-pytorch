@@ -3,7 +3,7 @@
 #### prerequisite
 Check the requirement.txt file, not tested :). You need to install pytorch nightly to use `torch.compile`.
 
-It is also interesting to know that pytorch's initialization for linear layer, i.e. $ uniform(-\sqrt(1/in_feature), \sqrt(1/feature)) $ makes the training faster. This is equivalent to using jax's variance initilizer with variance = $\sqrt(1/(3*in_feature))$
+It is also interesting to know that pytorch's initialization for linear layer, i.e. $\text{uniform}(-\sqrt{\frac{1}{n}}, \sqrt{\frac{1}{n}})$ where $n$ is the number of input feature , makes the training faster. This is equivalent to using jax's variance initializer with variance = $\sqrt{\frac{1}{3n}}$, mode = "fan\_in".
 
 
 #### usage
