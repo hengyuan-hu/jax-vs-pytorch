@@ -1,0 +1,10 @@
+einops==0.6.0
+flash_attn==0.2.8
+flax==0.6.4
+jax==0.4.4
+matplotlib==3.7.0
+numpy==1.24.2
+optax==0.1.4
+prettytable==3.6.0
+torch==2.0.0.dev20230227+cu118
+Jinja2==3.1.2
