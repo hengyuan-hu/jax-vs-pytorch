@@ -1,4 +1,9 @@
+import argparse
+import os
+import sys
+import random
 import time
+
 import flax.linen as fnn
 import jax
 import jax.nn as jnn
@@ -6,10 +11,10 @@ import jax.numpy as jnp
 import numpy as np
 import numpy.typing as npt
 import optax
-import random
 
 from config import ModelConfig
 from data import Enwik9Loader
+from logger import Logger
 
 
 class TransformerLayer(fnn.Module):
@@ -27,11 +32,18 @@ class TransformerLayer(fnn.Module):
             # from Attention is All You Need.
             dropout_rate=0,
             deterministic=False,
+            kernel_init=fnn.initializers.lecun_uniform(),
         )
-        self.layer_norm_1 = fnn.LayerNorm()
-        self.linear_1 = fnn.Dense(features=self.ff_dim)
-        self.linear_2 = fnn.Dense(features=self.d_model)
-        self.layer_norm_2 = fnn.LayerNorm()
+        self.layer_norm_1 = fnn.LayerNorm(epsilon=1e-5)
+        self.linear_1 = fnn.Dense(
+            features=self.ff_dim,
+            kernel_init=fnn.initializers.lecun_uniform(),
+        )
+        self.linear_2 = fnn.Dense(
+            features=self.d_model,
+            kernel_init=fnn.initializers.lecun_uniform(),
+        )
+        self.layer_norm_2 = fnn.LayerNorm(epsilon=1e-5)
         self.dropout_layer = fnn.Dropout(self.dropout, deterministic=False)
 
     def __call__(
@@ -53,7 +65,18 @@ class LM(fnn.Module):
     cfg: ModelConfig
 
     def setup(self):
-        self.byte_embedding = fnn.Embed(num_embeddings=256, features=self.cfg.d_model)
+        self.byte_embedding = fnn.Embed(
+            num_embeddings=256,
+            features=self.cfg.d_model,
+            embedding_init=jnn.initializers.normal(),
+        )
+        self.positional_encoding = self.param(
+            "positional_encoding",
+            jnn.initializers.normal(),
+            (self.cfg.seq_len, self.cfg.d_model),
+        )
+        self.dropout_layer = fnn.Dropout(self.cfg.dropout, deterministic=False)
+
         self.transformer_layers = [
             TransformerLayer(
                 self.cfg.d_model, self.cfg.num_heads, self.cfg.ff_dim, self.cfg.dropout
@@ -61,12 +84,6 @@ class LM(fnn.Module):
             for _ in range(self.cfg.n_layers)
         ]
         self.prob_decoder = fnn.Dense(features=256)
-        self.positional_encoding = self.param(
-            "positional_encoding",
-            jnn.initializers.normal(),
-            (self.cfg.seq_len, self.cfg.d_model),
-        )
-        self.dropout_layer = fnn.Dropout(self.cfg.dropout, deterministic=False)
 
     def __call__(self, text):
         "Run the model, returning unnormalized log probabilities."
@@ -79,21 +96,19 @@ class LM(fnn.Module):
                 f"expected input shape: [{self.cfg.seq_len}] dtype: uint8. "
                 f"Got {text.shape}, {text.dtype}"
             )
-        input_ = self.byte_embedding(text)
-        # print(text.shape, mask.shape)
-        # print(mask)
-        # Shift input_ right so causality isn't violated
-        input_ = jnp.concatenate(
-            [jnp.zeros([1, self.cfg.d_model]), input_[:-1, :]], axis=0
+        x = self.byte_embedding(text)
+        # Shift x right so causality isn't violated
+        x = jnp.concatenate(
+            [jnp.zeros([1, self.cfg.d_model]), x[:-1, :]], axis=0
         )
-        input_ = input_ + self.positional_encoding
-        input_ = self.dropout_layer(input_)
+        x = x + self.positional_encoding
+        x = self.dropout_layer(x)
 
         mask = fnn.attention.make_causal_mask(text)
-        for tl in self.transformer_layers:
-            input_ = tl(input_, mask=mask)
+        for layer in self.transformer_layers:
+            x = layer(x, mask=mask)
 
-        return self.prob_decoder(input_)
+        return self.prob_decoder(x)
 
 
 def compute_loss(params, model: LM, text, rng):
@@ -114,6 +129,7 @@ def setup_model(rng, cfg: ModelConfig):
 
 
 def setup_optimizer(params, cfg: ModelConfig):
+    # optimizer = optax.rmsprop(cfg.learning_rate)
     optimizer = optax.adam(cfg.learning_rate)
     opt_state = optimizer.init(params)
     return optimizer, opt_state
@@ -142,29 +158,29 @@ def train_loop(
     losses = []
     t = time.time()
     log_per = 20
-    for idx, batch in enumerate(Enwik9Loader(cfg.batch_size, cfg.seq_len, datapath)):
+    for idx, batch in enumerate(list(Enwik9Loader(cfg.batch_size, cfg.seq_len, datapath))):
         batch = jnp.array(batch)
-        params, opt_state, loss, rng = fast_train_step(
-            params, opt_state, batch, rng
-        )
+        params, opt_state, loss, rng = fast_train_step(params, opt_state, batch, rng)
         losses.append(loss)
 
-        if (idx+1) % log_per == 0:
+        if (idx + 1) % log_per == 0:
+            jax.block_until_ready(loss)
             time_elps = time.time() - t
             speed = log_per * cfg.batch_size / time_elps
-            print(f"At step {idx+1}, loss: {np.mean(losses):.4f}, Speed: {int(speed):d}")
+            print(
+                f"At iter {idx+1}, loss: {np.mean(losses):.4f}, Speed: {int(speed):d}"
+            )
             t = time.time()
             losses = []
+
+        if (idx + 1) > cfg.max_num_batch:
+            break
 
     return params, opt_state
 
 
 def setup_all(cfg: ModelConfig, rng=None):
-    rng = (
-        rng
-        if rng is not None
-        else jax.random.PRNGKey(random.randrange(-(2 ** 63), 2 ** 63))
-    )
+    rng = jax.random.PRNGKey(1)#random.randrange(-(2**63), 2**63))
 
     params, model = setup_model(rng, cfg)
     optimizer, opt_state = setup_optimizer(params, cfg)
@@ -173,22 +189,28 @@ def setup_all(cfg: ModelConfig, rng=None):
 
 
 if __name__ == "__main__":
-    from config import ModelConfig
+    parser = argparse.ArgumentParser(description="")
+    parser.add_argument("--save_dir", type=str, default="exps/jax")
+    parser.add_argument("--num_layer", type=int, default=1)
+    args = parser.parse_args()
+
+    args.save_dir = f"{args.save_dir}_layer{args.num_layer}"
+    logger_path = os.path.join(args.save_dir, f"train.log")
+    print(f"writing to {logger_path}")
+    sys.stdout = Logger(logger_path, print_to_stdout=True)
 
     enwik9 = "./enwik9"
-    # This is the highest batch size PyTorch can handle, the JAX model can do 79
     cfg = ModelConfig(
         seq_len=256,
-        n_layers=1,
+        n_layers=args.num_layer,
         d_model=512,
         num_heads=8,
         ff_dim=2048,
         dropout=0.1,
         batch_size=100,
         learning_rate=1e-3,
+        max_num_batch=5000,
     )
 
-    from jax_model import *
-
-    params, model, optimizer, opt_state, = setup_all(cfg)
+    params, model, optimizer, opt_state = setup_all(cfg)
     params, opt_state = train_loop(model, optimizer, opt_state, params, cfg, enwik9)

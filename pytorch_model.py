@@ -6,12 +6,13 @@ import einops
 import math
 
 
-class LM(nn.Module):
+class TorchLM(nn.Module):
+    """LM that uses pytorch's Transformer classes"""
     def __init__(self, cfg: ModelConfig):
         super().__init__()
         self.cfg = cfg
 
-        self.positional_encoding = nn.Parameter(torch.empty(cfg.seq_len, cfg.d_model))
+        self.positional_encoding = nn.Parameter(torch.empty(cfg.seq_len, 1, cfg.d_model))
         nn.init.normal_(self.positional_encoding)
         self.byte_embedding = nn.Embedding(
             num_embeddings=256, embedding_dim=cfg.d_model
@@ -20,7 +21,8 @@ class LM(nn.Module):
             d_model=cfg.d_model,
             nhead=cfg.num_heads,
             dim_feedforward=cfg.ff_dim,
-            batch_first=True,
+            batch_first=False,
+            norm_first=True,
         )
         self.transformer = nn.TransformerEncoder(
             encoder_layer=t_layer, num_layers=cfg.n_layers
@@ -64,7 +66,7 @@ class MultiHeadAttention(nn.Module):
         ).unbind(1)
         # q, k, v: (batch, num_head, seq, d_head)
         softmax_scale = 1.0 / math.sqrt(self.d_head)
-        score = torch.einsum("bhtd,bhsd->bhts", q, k) / softmax_scale
+        score = torch.einsum("bhtd,bhsd->bhts", q, k) * softmax_scale
         # score: (batch, num_head, seq, seq)
 
         if is_causal:
@@ -84,6 +86,7 @@ class MultiHeadAttention(nn.Module):
 class TransformerLayer(nn.Module):
     def __init__(self, d_model, num_head, ff_dim, dropout):
         super().__init__()
+        # self.mha = nn.MultiheadAttention(d_model, num_head)
         self.mha = MultiHeadAttention(d_model, num_head)
         self.layer_norm1 = nn.LayerNorm(d_model)
         self.linear1 = nn.Linear(d_model, ff_dim)
@@ -93,6 +96,16 @@ class TransformerLayer(nn.Module):
         self.dropout = dropout
 
     def forward(self, x):
+        # qkv = self.layer_norm1(x)
+        # seq_len = x.size(0)
+        # causal_mask = torch.triu(
+        #     torch.full((seq_len, seq_len), -1e6, device=x.device), diagonal=1
+        # )  # lower_tri + diagnal = 0
+        # x = x + nn.functional.dropout(
+        #     self.mha(qkv, qkv, qkv, attn_mask=causal_mask)[0],
+        #     p=self.dropout
+        # )
+
         x = x + nn.functional.dropout(self.mha(self.layer_norm1(x), is_causal=True), p=self.dropout)
         x = x + nn.functional.dropout(self._ff_block(self.layer_norm2(x)), p=self.dropout)
         return x
@@ -113,7 +126,10 @@ class HandCraftLM(nn.Module):
         self.byte_embedding = nn.Embedding(num_embeddings=256, embedding_dim=cfg.d_model)
 
         # self.mha = MultiHeadAttention(cfg.d_model, cfg.num_heads)
-        self.transformer = TransformerLayer(cfg.d_model, cfg.num_heads, cfg.ff_dim, cfg.dropout)
+        self.transformer = nn.Sequential(*[
+            TransformerLayer(cfg.d_model, cfg.num_heads, cfg.ff_dim, cfg.dropout)
+            for _ in range(cfg.n_layers)
+        ])
         self.prob_decoder = nn.Linear(in_features=cfg.d_model, out_features=256)
 
     def forward(self, text_batch):
@@ -124,8 +140,9 @@ class HandCraftLM(nn.Module):
         zeros = torch.zeros(1, batch_size, self.cfg.d_model, device=text_batch.device)
         embeddings = torch.cat([zeros, embeddings[:-1, :, :]], axis=0)  # type: ignore
         embeddings = embeddings + self.positional_encoding
-        embeddings = nn.Dropout(p=self.cfg.dropout)(embeddings)
+        embeddings = torch.nn.functional.dropout(embeddings, p=self.cfg.dropout)
 
-        x = self.transformer(embeddings)
+        x = embeddings
+        for layer in self.transformer:
+            x = layer(x)
         return self.prob_decoder(x)
-

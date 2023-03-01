@@ -14,3 +14,4 @@ class ModelConfig:
 
     batch_size: int
     learning_rate: float
+    max_num_batch: int
