@@ -35,7 +35,7 @@ All data types have similar training curve.
 
 **Speed of flash attention**
 
-flash attention only works on fp16
+flash attention only works on fp16?
 
 | dtype   | compile? | normal | flash | Speed up |
 | ------- | -------- | ------ | ----- | -------- |

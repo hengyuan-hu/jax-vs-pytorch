@@ -1,5 +1,4 @@
 einops==0.6.0
-flash_attn==0.2.8
 flax==0.6.4
 jax==0.4.4
 matplotlib==3.7.0
