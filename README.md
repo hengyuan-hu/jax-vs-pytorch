@@ -4,8 +4,8 @@
 Check the requirement.txt file, not tested :). You need to install pytorch nightly to use `torch.compile`.
 
 #### usage
-```
-# use
+```shell
+# usage
 # --model pytorch or handcraft
 #     pytorch: model that builds on top of pytorch's transformer modules
 #     handcraft: same model defined from basic pytorch components such as linear, einsum

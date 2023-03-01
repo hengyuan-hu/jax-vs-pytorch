@@ -1,7 +1,7 @@
 #%%
 import matplotlib.pyplot as plt
 plt.switch_backend("agg")
-%matplotlib inline
+# %matplotlib inline
 
 def parse_log(path):
     lines = open(path, 'r').readlines()
