@@ -36,24 +36,17 @@ def compute_loss(lm, batch):
     return nn.CrossEntropyLoss()(probs, targets)
 
 
-def train_epoch(lm, cfg: ModelConfig, datapath: str) -> None:
-    ptdtype = {
-        'float32': torch.float32,
-        'bfloat16': torch.bfloat16,
-        'float16': torch.float16
-    }[args.dtype]
-
+def train_epoch(lm, cfg: ModelConfig, datapath: str, pt_dtype) -> None:
     scaler = torch.cuda.amp.GradScaler(enabled=(args.dtype == 'float16'))
-
     optimizer = torch.optim.Adam(lm.parameters(), cfg.learning_rate)
+
     losses = []
     t = time.time()
     dataloader = list(Enwik9Loader(cfg.batch_size, cfg.seq_len, datapath))
     for i, batch in enumerate(dataloader):
         data = torch.tensor(batch, device="cuda").transpose(0, 1).contiguous()
-        with torch.amp.autocast(device_type="cuda", dtype=ptdtype):
+        with torch.amp.autocast(device_type="cuda", dtype=pt_dtype):
             loss = compute_loss(lm, data)
-
 
         scaler.scale(loss).backward()
         scaler.step(optimizer)
@@ -84,6 +77,7 @@ if __name__ == "__main__":
     # bfloat16 has the same range as float32, but different precision
     # float16 has less range as float32, but the same precision
     parser.add_argument("--dtype", type=str, default="bfloat16", help="float32/bfloat16/float16")
+    parser.add_argument("--flash", type=int, default=0, help="flash attn")
     args = parser.parse_args()
 
     # torch.set_float32_matmul_precision(args.fp32_precision)
@@ -93,6 +87,14 @@ if __name__ == "__main__":
     args.save_dir = f"{args.save_dir}_{args.model}_layer{args.num_layer}_{args.dtype}"
     if args.compile:
         args.save_dir = f"{args.save_dir}_compiled"
+    if args.flash:
+        args.save_dir = f"{args.save_dir}_flash"
+
+    pt_dtype = {
+        'float32': torch.float32,
+        'bfloat16': torch.bfloat16,
+        'float16': torch.float16
+    }[args.dtype]
 
     logger_path = os.path.join(args.save_dir, f"train.log")
     sys.stdout = Logger(logger_path, print_to_stdout=True)
@@ -114,7 +116,7 @@ if __name__ == "__main__":
     )
 
     if args.model == "handcraft":
-        lm = HandCraftLM(cfg)
+        lm = HandCraftLM(cfg, args.flash)
     elif args.model == "torch":
         lm = TorchLM(cfg)
     else:
@@ -134,4 +136,4 @@ if __name__ == "__main__":
     #         f"{v.std().item():.2e}",
     #     )
 
-    train_epoch(lm, cfg, enwik9)
+    train_epoch(lm, cfg, enwik9, pt_dtype)

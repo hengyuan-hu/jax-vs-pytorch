@@ -190,7 +190,7 @@ def setup_all(cfg: ModelConfig, rng=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
-    parser.add_argument("--save_dir", type=str, default="exps/jax")
+    parser.add_argument("--save_dir", type=str, default="exps/jax/run")
     parser.add_argument("--num_layer", type=int, default=1)
     args = parser.parse_args()
 
@@ -213,4 +213,5 @@ if __name__ == "__main__":
     )
 
     params, model, optimizer, opt_state = setup_all(cfg)
+    # param_count = sum(x.size for x in jax.tree_leaves(params))
     params, opt_state = train_loop(model, optimizer, opt_state, params, cfg, enwik9)
