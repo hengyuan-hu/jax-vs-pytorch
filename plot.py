@@ -67,6 +67,32 @@ ax.plot(fp16fc_losses, label="fp16-compiled-flash")
 fig.legend(loc="upper right")
 fig.tight_layout()
 
+#%%
+#%%
+fp16_losses, fp16_speeds = parse_log(
+    "./exps/pytorch/run_handcraft_layer8_float16_compiled/train.log")
+bfp16_losses, bfp16_speeds = parse_log(
+    "./exps/pytorch/run_handcraft_layer8_bfloat16_compiled/train.log")
+bfp16f_losses, bfp16f_speeds = parse_log(
+    "./exps/pytorch/run_handcraft_layer8_bfloat16_flash/train.log")
+bfp16fc_losses, bfp16fc_speeds = parse_log(
+    "./exps/pytorch/run_handcraft_layer8_bfloat16_compiled_flash/train.log")
+
+print("fp16 speed:", np.mean(fp16_speeds[-10:]))
+print("bfp16 speed:", np.mean(bfp16_speeds[-10:]))
+print("bfp16f speed:", np.mean(bfp16f_speeds[-10:]))
+print("bfp16fc speed:", np.mean(bfp16fc_speeds[-10:]))
+# print("fp16f compiled speed:", np.mean(fp16fc_speeds[-10:]))
+
+fig, ax = generate_grid(1, 1, figsize=5)
+ax.set_ylim(ymax=1.4)
+ax.set_ylim(ymin=1)
+ax.plot(fp16_losses, label="fp16")
+ax.plot(bfp16_losses, label="fp16")
+ax.plot(bfp16f_losses, label="fp16-flash")
+# ax.plot(fp16fc_losses, label="fp16-compiled-flash")
+fig.legend(loc="upper right")
+fig.tight_layout()
 
 #%%
 
