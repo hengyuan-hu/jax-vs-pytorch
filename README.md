@@ -3,7 +3,7 @@
 ### Prerequisite
 Check the requirement.txt file, not tested :). You need to install pytorch nightly to use `torch.compile`.
 
-It is also interesting to know that pytorch's initialization for linear layer, i.e. $\text{uniform}(-\sqrt{\frac{1}{n}}, \sqrt{\frac{1}{n}})$ where $n$ is the number of input feature , makes the training faster. This is equivalent to using jax's variance initializer with variance = $\sqrt{\frac{1}{3n}}$, i.e. scale = 1/3, mode= "fan\_in".
+It is also interesting to know that pytorch's initialization for linear layer, i.e. $\text{uniform}(-\sqrt{\frac{1}{n}}, \sqrt{\frac{1}{n}})$ where $n$ is the number of input feature , makes the model converges faster. This is equivalent (maybe?) to using jax's variance initializer with variance = $\sqrt{\frac{1}{3n}}$, i.e. scale = 1/3, mode= "fan\_in".
 
 #### Usage
 
@@ -48,15 +48,18 @@ Jax seems to beat torch.compile, at least on float32.
 I have not learned how to write fp16 training in jax. It is not as easy as in pytorch.
 
 
-**Speed of flash attention**
+**Speed of flash-attention**
 
-flash attention only works on fp16 and bfp16
+flash-attention only works on fp16 and bfp16. 
+Here we use the flash attention implemented in pytorch's `torch.nn.functional.scaled_dot_product`
+instead of the standalone flash-attention repo. The later may be even faster but harder to use.
+
+It is interesting that a naive implementaion is accelated to be almost as fast as the flash-attention.
 
 | dtype    | torch.compile | flash    | speed up |
 | -------- | ------------- | -------- | -------- |
 | float16  | 1287          | **1425** | 1.11x    |
 | bfloat16 | 1273          | **1435** | 1.13x    |
-
 
 
 **NOTE**: somehow flash attention is slower when compiled
