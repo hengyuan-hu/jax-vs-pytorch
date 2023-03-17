@@ -70,7 +70,16 @@ It is interesting that a naive implementaion is accelated to be almost as fast a
 | bfloat16 | **1435** | 1176          |
 
 
+**RTX4090 vs A5000**
 
+torch.compile=1, flash=0
 
+| dtype    | A5000 | RTX4090 | speed up |
+| -------- | ----- | ------------- | -------- |
+| bfloat16 | 731   | 1296          | 1.77x    |
 
+torch.compile=0, flash=1
 
+| dtype    | A5000 | RTX4090 | speed up |
+| -------- | ----- | ------------- | -------- |
+| bfloat16 | 820   | 1468          | 1.79x    |
