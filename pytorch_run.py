@@ -70,7 +70,7 @@ def train_epoch(lm, cfg: ModelConfig, datapath: str, pt_dtype) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
-    parser.add_argument("--num_layer", type=int, default=1)
+    parser.add_argument("--num_layer", type=int, default=24)
     parser.add_argument("--model", type=str, help="handcraft/torch")
     parser.add_argument("--compile", type=int, default=0)
     parser.add_argument("--save_dir", type=str, default="exps/pytorch")
@@ -78,6 +78,7 @@ if __name__ == "__main__":
     # float16 has less range as float32, but the same precision
     parser.add_argument("--dtype", type=str, default="bfloat16", help="float32/bfloat16/float16")
     parser.add_argument("--flash", type=int, default=0, help="flash attn")
+    parser.add_argument("--xformer", type=int, default=0, help="xformer")
     args = parser.parse_args()
 
     # torch.set_float32_matmul_precision(args.fp32_precision)
@@ -116,9 +117,9 @@ if __name__ == "__main__":
     )
 
     if args.model == "handcraft":
-        lm = HandCraftLM(cfg, args.flash)
-    elif args.model == "torch":
-        lm = TorchLM(cfg)
+        lm = HandCraftLM(cfg, args.flash, args.xformer)
+    # elif args.model == "torch":
+    #     lm = TorchLM(cfg)
     else:
         assert False
 
